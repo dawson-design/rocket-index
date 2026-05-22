@@ -880,28 +880,18 @@ fn cmd_index(
         total_refs += chunk_references.len();
         total_opens += chunk_opens.len();
 
-        // Insert this chunk's data immediately
-        if let Err(e) = index.insert_symbols(&chunk_symbols) {
-            errors.push(format!("Failed to insert symbols: {}", e));
-        }
-
         let ref_tuples: Vec<_> = chunk_references
             .iter()
             .map(|(f, r)| (f.as_path(), r))
             .collect();
-        if let Err(e) = index.insert_references(&ref_tuples) {
-            errors.push(format!("Failed to insert references: {}", e));
-        }
-
         let open_tuples: Vec<_> = chunk_opens
             .iter()
             .map(|(f, m, l)| (f.as_path(), m.as_str(), *l))
             .collect();
-        if let Err(e) = index.insert_opens(&open_tuples) {
-            errors.push(format!("Failed to insert opens: {}", e));
-        }
 
-        // Record file modification times for this chunk
+        // Record file modification times for this chunk in the same transaction
+        // as the indexed data.
+        let mut chunk_mtimes = Vec::new();
         for file in chunk {
             if let Ok(metadata) = std::fs::metadata(file) {
                 if let Ok(modified) = metadata.modified() {
@@ -909,11 +899,21 @@ fn cmd_index(
                         .duration_since(std::time::UNIX_EPOCH)
                         .map(|d| d.as_secs())
                         .unwrap_or(0);
-                    if let Err(e) = index.set_file_mtime(file, mtime) {
-                        tracing::warn!("Failed to record mtime for {:?}: {}", file, e);
-                    }
+                    chunk_mtimes.push((file.clone(), mtime));
                 }
             }
+        }
+        let mtime_tuples: Vec<_> = chunk_mtimes
+            .iter()
+            .map(|(f, m)| (f.as_path(), *m))
+            .collect();
+
+        // Insert this chunk's data immediately, but keep the chunk coherent in
+        // one transaction rather than one transaction per table.
+        if let Err(e) =
+            index.insert_index_batch(&chunk_symbols, &ref_tuples, &open_tuples, &mtime_tuples)
+        {
+            errors.push(format!("Failed to insert index batch: {}", e));
         }
 
         // Memory for chunk_symbols, chunk_references, chunk_opens is dropped here

@@ -171,23 +171,48 @@ impl ProjectState {
         let files = sqlite.list_files()?;
 
         for file in files {
-            // Load symbols for this file
-            let symbols = sqlite.symbols_in_file(&file)?;
-            for symbol in symbols {
-                code_index.add_symbol(symbol);
-            }
+            Self::load_file_into_code_index(sqlite, code_index, &file)?;
+        }
 
-            // Load references for this file
-            let refs = sqlite.references_in_file(&file)?;
-            for reference in refs {
-                code_index.add_reference(file.clone(), reference);
-            }
+        Ok(())
+    }
 
-            // Load open statements for this file
-            let opens = sqlite.opens_for_file(&file)?;
-            for module in opens {
-                code_index.add_open(file.clone(), module);
-            }
+    /// Load one file from SQLite into the in-memory CodeIndex.
+    fn load_file_into_code_index(
+        sqlite: &SqliteIndex,
+        code_index: &mut CodeIndex,
+        file: &Path,
+    ) -> Result<()> {
+        // Load symbols for this file
+        let symbols = sqlite.symbols_in_file(file)?;
+        for symbol in symbols {
+            code_index.add_symbol(symbol);
+        }
+
+        // Load references for this file
+        let refs = sqlite.references_in_file(file)?;
+        for reference in refs {
+            code_index.add_reference(file.to_path_buf(), reference);
+        }
+
+        // Load open statements for this file
+        let opens = sqlite.opens_for_file(file)?;
+        for module in opens {
+            code_index.add_open(file.to_path_buf(), module);
+        }
+
+        Ok(())
+    }
+
+    /// Refresh only the files changed by the watcher in the in-memory CodeIndex.
+    pub fn refresh_files(&mut self, updated: &[PathBuf], deleted: &[PathBuf]) -> Result<()> {
+        for file in deleted {
+            self.code_index.clear_file(file);
+        }
+
+        for file in updated {
+            self.code_index.clear_file(file);
+            Self::load_file_into_code_index(&self.sqlite, &mut self.code_index, file)?;
         }
 
         Ok(())

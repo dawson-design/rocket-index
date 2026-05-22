@@ -57,6 +57,10 @@ pub struct BatchStats {
     pub files_updated: usize,
     /// Number of files removed from index
     pub files_deleted: usize,
+    /// Files that were successfully re-indexed.
+    pub updated_paths: Vec<PathBuf>,
+    /// Files that were successfully removed from the index.
+    pub deleted_paths: Vec<PathBuf>,
     /// Number of symbols inserted
     pub symbols_inserted: usize,
     /// Number of references inserted
@@ -199,6 +203,7 @@ impl BatchProcessor {
                     tracing::warn!("Failed to clear file {:?}: {}", path, e);
                 } else {
                     stats.files_deleted += 1;
+                    stats.deleted_paths.push(path.clone());
                 }
             }
 
@@ -236,6 +241,7 @@ impl BatchProcessor {
                 }
 
                 stats.files_updated += 1;
+                stats.updated_paths.push(path.clone());
             }
 
             Ok(())
@@ -566,6 +572,7 @@ mod tests {
         let stats = batch.flush(&index).unwrap();
 
         assert_eq!(stats.files_updated, 1);
+        assert_eq!(stats.updated_paths.len(), 1);
         assert!(stats.symbols_inserted > 0);
     }
 

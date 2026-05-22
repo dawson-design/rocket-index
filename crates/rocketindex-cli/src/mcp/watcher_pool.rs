@@ -25,7 +25,7 @@ use super::ProjectManager;
 /// 1. Monitors for file changes using `DebouncedFileWatcher`
 /// 2. Batches events using `BatchProcessor`
 /// 3. Updates the SQLite index incrementally
-/// 4. Signals the ProjectManager to reload the in-memory CodeIndex
+/// 4. Signals the ProjectManager to refresh changed files in the in-memory CodeIndex
 pub struct WatcherPool {
     /// Reference to the project manager for reloading
     manager: Arc<ProjectManager>,
@@ -238,6 +238,8 @@ async fn run_watcher_loop(
                                 .blocking_send(IndexUpdateEvent {
                                     files_updated: stats.files_updated,
                                     files_deleted: stats.files_deleted,
+                                    updated_paths: stats.updated_paths,
+                                    deleted_paths: stats.deleted_paths,
                                 })
                                 .is_err()
                             {
@@ -275,13 +277,18 @@ async fn run_watcher_loop(
             // Index was updated
             Some(event) = event_rx.recv() => {
                 if event.files_updated > 0 || event.files_deleted > 0 {
-                    // Reload the in-memory CodeIndex
+                    // Refresh only the files touched by this batch.
                     if manager.with_project_mut(&root, |state| {
-                        if let Err(e) = state.reload() {
-                            warn!("Failed to reload CodeIndex for {}: {}", root.display(), e);
+                        if let Err(e) = state.refresh_files(&event.updated_paths, &event.deleted_paths) {
+                            warn!("Failed to refresh CodeIndex for {}: {}", root.display(), e);
                         }
                     }).await.is_some() {
-                        debug!("Reloaded CodeIndex for {}", root.display());
+                        debug!(
+                            "Refreshed CodeIndex for {} ({} updated, {} deleted)",
+                            root.display(),
+                            event.files_updated,
+                            event.files_deleted
+                        );
                     }
                 }
             }
@@ -298,6 +305,8 @@ async fn run_watcher_loop(
 struct IndexUpdateEvent {
     files_updated: usize,
     files_deleted: usize,
+    updated_paths: Vec<PathBuf>,
+    deleted_paths: Vec<PathBuf>,
 }
 
 #[cfg(test)]

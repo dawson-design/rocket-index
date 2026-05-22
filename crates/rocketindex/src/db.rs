@@ -386,6 +386,88 @@ impl SqliteIndex {
         Ok(())
     }
 
+    /// Insert one indexing chunk in a single transaction.
+    ///
+    /// This keeps symbols, references, opens, and file mtimes consistent while
+    /// avoiding a separate transaction per table during bulk indexing.
+    pub fn insert_index_batch(
+        &self,
+        symbols: &[Symbol],
+        refs: &[(&Path, &Reference)],
+        opens: &[(&Path, &str, u32)],
+        mtimes: &[(&Path, u64)],
+    ) -> Result<()> {
+        let conn = self.conn();
+        let tx = conn.unchecked_transaction()?;
+        {
+            let mut stmt_symbol = tx.prepare_cached(
+                "INSERT INTO symbols (name, qualified, kind, file, line, column, end_line, end_column, visibility, language, source, parent, mixins, attributes, implements, doc, signature)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'syntactic', ?11, ?12, ?13, ?14, ?15, ?16)",
+            )?;
+            let mut stmt_ref = tx.prepare_cached(
+                "INSERT INTO refs (name, file, line, column) VALUES (?1, ?2, ?3, ?4)",
+            )?;
+            let mut stmt_open = tx.prepare_cached(
+                "INSERT INTO opens (file, module_path, line) VALUES (?1, ?2, ?3)",
+            )?;
+            let mut stmt_mtime = tx.prepare_cached(
+                "INSERT OR REPLACE INTO file_mtimes (path, mtime) VALUES (?1, ?2)",
+            )?;
+
+            for symbol in symbols {
+                stmt_symbol.execute(params![
+                    symbol.name,
+                    symbol.qualified,
+                    symbol_kind_to_str(symbol.kind),
+                    symbol.location.file.to_string_lossy(),
+                    symbol.location.line,
+                    symbol.location.column,
+                    symbol.location.end_line,
+                    symbol.location.end_column,
+                    visibility_to_str(symbol.visibility),
+                    symbol.language,
+                    symbol.parent,
+                    symbol
+                        .mixins
+                        .as_ref()
+                        .map(|v| serde_json::to_string(v).unwrap_or_default()),
+                    symbol
+                        .attributes
+                        .as_ref()
+                        .map(|v| serde_json::to_string(v).unwrap_or_default()),
+                    symbol
+                        .implements
+                        .as_ref()
+                        .map(|v| serde_json::to_string(v).unwrap_or_default()),
+                    symbol.doc,
+                    symbol.signature,
+                ])?;
+            }
+
+            for (file, reference) in refs {
+                let file_str = file.to_string_lossy();
+                stmt_ref.execute(params![
+                    reference.name,
+                    file_str.as_ref(),
+                    reference.location.line,
+                    reference.location.column,
+                ])?;
+            }
+
+            for (file, module_path, line) in opens {
+                let file_str = file.to_string_lossy();
+                stmt_open.execute(params![file_str.as_ref(), *module_path, *line])?;
+            }
+
+            for (file, mtime) in mtimes {
+                let file_str = file.to_string_lossy();
+                stmt_mtime.execute(params![file_str.as_ref(), *mtime as i64])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// Find a symbol by its qualified name. Returns the first match.
     #[must_use = "query results should not be ignored"]
     pub fn find_by_qualified(&self, qualified: &str) -> Result<Option<Symbol>> {
