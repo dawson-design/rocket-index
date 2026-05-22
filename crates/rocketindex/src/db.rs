@@ -719,46 +719,42 @@ impl SqliteIndex {
         limit: usize,
         language: Option<&str>,
     ) -> Result<Vec<(Symbol, usize)>> {
-        // OPTIMIZATION: Use FTS to get candidates first, then filter by edit distance.
-        // This avoids loading all 36k+ symbols into memory for every fuzzy search.
-        // We search for prefix matches which are likely to have low edit distance.
+        // Use an indexed prefix query to get likely candidates, then filter by edit distance.
+        // FTS prefix MATCH can hang on some SQLite/FTS builds for typo-shaped queries, so
+        // fuzzy search stays on ordinary symbol indexes and falls back to a bounded scan.
 
         // Generate candidate prefixes from the query (first N chars)
         let candidate_limit = limit * 20; // Get more candidates than needed for filtering
         let symbols = if query.len() >= 2 {
-            // Use FTS prefix search for candidate generation
+            // Use ordinary indexes for candidate generation.
             let prefix = &query[..query.len().min(4)];
-            let fts_query = format!("{}*", prefix);
-
-            let prefixed_cols = SYMBOL_COLUMNS
-                .split(", ")
-                .map(|c| format!("s.{}", c))
-                .collect::<Vec<_>>()
-                .join(", ");
+            let prefix_query = format!("{}%", prefix);
 
             let sql = if language.is_some() {
                 format!(
-                    "SELECT {} FROM symbols s JOIN symbols_fts fts ON s.id = fts.rowid WHERE symbols_fts MATCH ?1 AND s.language = ?2 LIMIT ?3",
-                    prefixed_cols
+                    "SELECT {} FROM symbols WHERE (name LIKE ?1 OR qualified LIKE ?1) AND language = ?2 LIMIT ?3",
+                    SYMBOL_COLUMNS
                 )
             } else {
                 format!(
-                    "SELECT {} FROM symbols s JOIN symbols_fts fts ON s.id = fts.rowid WHERE symbols_fts MATCH ?1 LIMIT ?2",
-                    prefixed_cols
+                    "SELECT {} FROM symbols WHERE name LIKE ?1 OR qualified LIKE ?1 LIMIT ?2",
+                    SYMBOL_COLUMNS
                 )
             };
 
-            let conn = self.conn();
-            let mut stmt = conn.prepare(&sql)?;
-            let result: Vec<Symbol> = if let Some(lang) = language {
-                stmt.query_map(
-                    params![fts_query, lang, candidate_limit as i64],
-                    row_to_symbol,
-                )?
-            } else {
-                stmt.query_map(params![fts_query, candidate_limit as i64], row_to_symbol)?
-            }
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+            let result: Vec<Symbol> = {
+                let conn = self.conn();
+                let mut stmt = conn.prepare(&sql)?;
+                if let Some(lang) = language {
+                    stmt.query_map(
+                        params![prefix_query, lang, candidate_limit as i64],
+                        row_to_symbol,
+                    )?
+                } else {
+                    stmt.query_map(params![prefix_query, candidate_limit as i64], row_to_symbol)?
+                }
+                .collect::<std::result::Result<Vec<_>, _>>()?
+            };
 
             // If FTS found enough candidates, use them; otherwise fall back to full scan
             if result.len() >= limit {

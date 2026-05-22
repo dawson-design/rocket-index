@@ -1525,6 +1525,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "sequence_expression"
+        },
+        {
+          "type": "SYMBOL",
           "name": "anon_record_expression"
         },
         {
@@ -1744,6 +1748,44 @@
                       "name": "with_field_expression"
                     }
                   ]
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_dedent"
+                }
+              ]
+            }
+          },
+          {
+            "type": "STRING",
+            "value": "}"
+          }
+        ]
+      }
+    },
+    "sequence_expression": {
+      "type": "PREC",
+      "value": 15,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "{"
+          },
+          {
+            "type": "FIELD",
+            "name": "block",
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_indent"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_comp_or_range_expression"
                 },
                 {
                   "type": "SYMBOL",
@@ -3185,6 +3227,10 @@
         {
           "type": "SYMBOL",
           "name": "short_comp_expression"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "range_expression"
         }
       ]
     },
@@ -4602,6 +4648,18 @@
           "value": "exception"
         },
         {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "access_modifier"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
           "type": "FIELD",
           "name": "exception_name",
           "content": {
@@ -4610,12 +4668,25 @@
           }
         },
         {
-          "type": "STRING",
-          "value": "of"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_type"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "STRING",
+                  "value": "of"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_type"
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         }
       ]
     },
@@ -8652,6 +8723,10 @@
     ],
     [
       "rules"
+    ],
+    [
+      "sequence_expression",
+      "ce_expression"
     ]
   ],
   "precedences": [],
@@ -8751,5 +8826,6 @@
   ],
   "supertypes": [
     "_module_signature_elements"
-  ]
+  ],
+  "reserved": {}
 }

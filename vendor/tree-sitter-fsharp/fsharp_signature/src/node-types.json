@@ -194,6 +194,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -370,6 +374,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -686,6 +694,14 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "range_expression",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -1109,6 +1125,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -1354,6 +1374,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -1568,6 +1592,14 @@
             "named": true
           },
           {
+            "type": "range_expression",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -1696,6 +1728,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -2386,6 +2422,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -2518,6 +2558,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -2731,6 +2775,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -2859,6 +2907,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -2994,6 +3046,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -3143,6 +3199,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -3270,6 +3330,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -3416,6 +3480,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -3797,6 +3865,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -3952,6 +4024,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -4111,6 +4187,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -4297,6 +4377,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -4693,6 +4777,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -4823,6 +4911,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -4950,6 +5042,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -5099,6 +5195,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -5223,6 +5323,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -5362,6 +5466,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -5625,6 +5733,14 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "range_expression",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -5910,6 +6026,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -6095,6 +6215,10 @@
         },
         {
           "type": "rules",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -6290,6 +6414,10 @@
         },
         {
           "type": "property_or_ident",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -6601,6 +6729,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -6744,6 +6876,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -6917,6 +7053,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -7097,6 +7237,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -7224,6 +7368,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -7533,6 +7681,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -7740,6 +7892,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -8084,6 +8240,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -8212,6 +8372,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -8364,6 +8528,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -8561,6 +8729,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -8745,6 +8917,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -9063,6 +9239,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -9190,6 +9370,10 @@
           },
           {
             "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
             "named": true
           },
           {
@@ -9333,6 +9517,154 @@
     }
   },
   {
+    "type": "sequence_expression",
+    "named": true,
+    "fields": {
+      "block": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "anon_record_expression",
+            "named": true
+          },
+          {
+            "type": "application_expression",
+            "named": true
+          },
+          {
+            "type": "array_expression",
+            "named": true
+          },
+          {
+            "type": "begin_end_expression",
+            "named": true
+          },
+          {
+            "type": "brace_expression",
+            "named": true
+          },
+          {
+            "type": "ce_expression",
+            "named": true
+          },
+          {
+            "type": "const",
+            "named": true
+          },
+          {
+            "type": "declaration_expression",
+            "named": true
+          },
+          {
+            "type": "do_expression",
+            "named": true
+          },
+          {
+            "type": "dot_expression",
+            "named": true
+          },
+          {
+            "type": "for_expression",
+            "named": true
+          },
+          {
+            "type": "fun_expression",
+            "named": true
+          },
+          {
+            "type": "function_expression",
+            "named": true
+          },
+          {
+            "type": "if_expression",
+            "named": true
+          },
+          {
+            "type": "index_expression",
+            "named": true
+          },
+          {
+            "type": "infix_expression",
+            "named": true
+          },
+          {
+            "type": "list_expression",
+            "named": true
+          },
+          {
+            "type": "literal_expression",
+            "named": true
+          },
+          {
+            "type": "long_identifier_or_op",
+            "named": true
+          },
+          {
+            "type": "match_expression",
+            "named": true
+          },
+          {
+            "type": "mutate_expression",
+            "named": true
+          },
+          {
+            "type": "null",
+            "named": false
+          },
+          {
+            "type": "paren_expression",
+            "named": true
+          },
+          {
+            "type": "prefixed_expression",
+            "named": true
+          },
+          {
+            "type": "preproc_if",
+            "named": true
+          },
+          {
+            "type": "range_expression",
+            "named": true
+          },
+          {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
+            "type": "sequential_expression",
+            "named": true
+          },
+          {
+            "type": "short_comp_expression",
+            "named": true
+          },
+          {
+            "type": "try_expression",
+            "named": true
+          },
+          {
+            "type": "tuple_expression",
+            "named": true
+          },
+          {
+            "type": "typecast_expression",
+            "named": true
+          },
+          {
+            "type": "typed_expression",
+            "named": true
+          },
+          {
+            "type": "while_expression",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "sequential_expression",
     "named": true,
     "fields": {},
@@ -9434,6 +9766,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -9624,6 +9960,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -9790,6 +10130,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -9920,6 +10264,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -10044,6 +10392,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -10190,6 +10542,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -10492,6 +10848,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -10620,6 +10980,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -10959,6 +11323,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -11099,6 +11467,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -11624,6 +11996,10 @@
             "named": true
           },
           {
+            "type": "sequence_expression",
+            "named": true
+          },
+          {
             "type": "sequential_expression",
             "named": true
           },
@@ -11828,6 +12204,10 @@
           "named": true
         },
         {
+          "type": "sequence_expression",
+          "named": true
+        },
+        {
           "type": "sequential_expression",
           "named": true
         },
@@ -11967,6 +12347,10 @@
         },
         {
           "type": "preproc_if",
+          "named": true
+        },
+        {
+          "type": "sequence_expression",
           "named": true
         },
         {
@@ -12414,7 +12798,8 @@
   },
   {
     "type": "line_comment",
-    "named": true
+    "named": true,
+    "extra": true
   },
   {
     "type": "match",

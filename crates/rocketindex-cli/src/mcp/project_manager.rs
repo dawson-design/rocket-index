@@ -1,23 +1,19 @@
 //! Multi-project state management for the MCP server.
 
-use anyhow::{Context, Result};
-use rayon::prelude::*;
-use rocketindex::config::Config;
-use rocketindex::watch::find_source_files_with_config;
+use anyhow::{bail, Context, Result};
 use rocketindex::{CodeIndex, SqliteIndex};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{info, warn};
+
+use crate::{cmd_index, exit_codes, OutputFormat};
 
 use super::config::McpConfig;
 
 /// State for a single indexed project
 pub struct ProjectState {
-    /// Root directory of the project
-    pub root: PathBuf,
     /// SQLite index for persistent storage
     pub sqlite: SqliteIndex,
     /// In-memory CodeIndex for resolution
@@ -28,11 +24,11 @@ pub struct ProjectState {
 }
 
 impl ProjectState {
-    /// Load a project from its root directory, auto-indexing if needed
+    /// Load a project from its root directory, creating the index if needed.
     pub fn load(root: PathBuf) -> Result<Self> {
         let db_path = root.join(".rocketindex").join("index.db");
 
-        // Auto-index if no index exists
+        // Route first-time indexing through the same bounded-memory path as `rkt index`.
         if !db_path.exists() {
             Self::create_index(&root)?;
         }
@@ -48,121 +44,22 @@ impl ProjectState {
         Self::load_code_index(&sqlite, &mut code_index)?;
 
         Ok(Self {
-            root,
             sqlite,
             code_index,
             watching: false,
         })
     }
 
-    /// Create the index for a project (auto-indexing on first load)
+    /// Create the index for a project using the shared CLI indexing path.
     fn create_index(root: &Path) -> Result<()> {
-        let start = Instant::now();
         info!("Auto-indexing project: {}", root.display());
-
-        // Load configuration
-        let config = Config::load(root);
-        let exclude_dirs = config.excluded_dirs();
-
-        // Find source files
-        let files = find_source_files_with_config(root, &exclude_dirs, config.respect_gitignore)
-            .with_context(|| format!("Failed to find source files in {}", root.display()))?;
-
-        let max_depth = config.max_recursion_depth;
-
-        // Parse files in parallel
-        let parse_results: Vec<_> = files
-            .par_iter()
-            .filter_map(|file| match std::fs::read_to_string(file) {
-                Ok(source) => {
-                    let result = rocketindex::extract_symbols(file, &source, max_depth);
-                    Some((file.clone(), result))
-                }
-                Err(e) => {
-                    warn!("Failed to read {}: {}", file.display(), e);
-                    None
-                }
-            })
-            .collect();
-
-        // Create index directory
-        let index_dir = root.join(".rocketindex");
-        std::fs::create_dir_all(&index_dir).with_context(|| {
-            format!(
-                "Failed to create .rocketindex directory at {}",
-                index_dir.display()
-            )
-        })?;
-
-        // SECURITY: Set directory permissions to 0700 (owner only)
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&index_dir, std::fs::Permissions::from_mode(0o700));
+        let code = cmd_index(root, false, 1000, false, OutputFormat::Text, true)
+            .context("Failed to auto-index project")?;
+        if code == exit_codes::SUCCESS {
+            Ok(())
+        } else {
+            bail!("auto-index failed with exit code {}", code)
         }
-
-        let db_path = index_dir.join("index.db");
-
-        // Create SQLite index
-        let index = SqliteIndex::create(&db_path)
-            .with_context(|| format!("Failed to create index at {}", db_path.display()))?;
-
-        // Store workspace root in metadata
-        index
-            .set_metadata("workspace_root", &root.to_string_lossy())
-            .context("Failed to set workspace root")?;
-
-        // Collect all data for batch insertion
-        let mut all_symbols = Vec::new();
-        let mut all_references: Vec<(PathBuf, rocketindex::index::Reference)> = Vec::new();
-        let mut all_opens: Vec<(PathBuf, String, u32)> = Vec::new();
-
-        for (file, parse_result) in parse_results {
-            all_symbols.extend(parse_result.symbols);
-
-            for reference in parse_result.references {
-                all_references.push((file.clone(), reference));
-            }
-
-            for (line, open) in parse_result.opens.into_iter().enumerate() {
-                all_opens.push((file.clone(), open, line as u32 + 1));
-            }
-        }
-
-        let symbol_count = all_symbols.len();
-
-        // Batch insert symbols
-        index
-            .insert_symbols(&all_symbols)
-            .context("Failed to insert symbols")?;
-
-        // Batch insert references
-        let ref_tuples: Vec<_> = all_references
-            .iter()
-            .map(|(f, r)| (f.as_path(), r))
-            .collect();
-        index
-            .insert_references(&ref_tuples)
-            .context("Failed to insert references")?;
-
-        // Batch insert opens
-        let open_tuples: Vec<_> = all_opens
-            .iter()
-            .map(|(f, m, l)| (f.as_path(), m.as_str(), *l))
-            .collect();
-        index
-            .insert_opens(&open_tuples)
-            .context("Failed to insert opens")?;
-
-        let duration = start.elapsed();
-        info!(
-            "Auto-indexed {} files, {} symbols in {:.2}s",
-            files.len(),
-            symbol_count,
-            duration.as_secs_f64()
-        );
-
-        Ok(())
     }
 
     /// Load symbols from SQLite into the in-memory CodeIndex
@@ -215,16 +112,6 @@ impl ProjectState {
             Self::load_file_into_code_index(&self.sqlite, &mut self.code_index, file)?;
         }
 
-        Ok(())
-    }
-
-    /// Reload the index from SQLite
-    pub fn reload(&mut self) -> Result<()> {
-        let db_path = self.root.join(".rocketindex").join("index.db");
-        self.sqlite = SqliteIndex::open(&db_path)?;
-        self.code_index = CodeIndex::new();
-        self.code_index.set_workspace_root(self.root.clone());
-        Self::load_code_index(&self.sqlite, &mut self.code_index)?;
         Ok(())
     }
 }

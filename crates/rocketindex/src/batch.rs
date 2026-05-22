@@ -8,9 +8,17 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use rayon::prelude::*;
+
 use crate::db::{symbol_kind_to_str, visibility_to_str, SqliteIndex};
 use crate::watch::WatchEvent;
 use crate::{extract_symbols, IndexError};
+
+enum ParsedUpdate {
+    Parsed(PathBuf, u64, crate::parse::ParseResult),
+    Missing(PathBuf),
+    Failed(PathBuf),
+}
 
 /// Default batch interval (how long to wait before flushing)
 pub const DEFAULT_BATCH_INTERVAL: Duration = Duration::from_millis(100);
@@ -170,74 +178,147 @@ impl BatchProcessor {
             return Ok(stats);
         }
 
-        // Take ownership of pending sets
+        // Take ownership of pending sets. Failed work is requeued before return.
         let updates = std::mem::take(&mut self.pending_updates);
-        let deletes = std::mem::take(&mut self.pending_deletes);
+        let mut deletes = std::mem::take(&mut self.pending_deletes);
 
         // Reset batch timer
         self.batch_start = None;
 
         // Collect all parse results BEFORE starting the transaction
         // (file I/O should not hold a DB lock)
-        let mut parsed_files = Vec::new();
-        for path in &updates {
-            if !path.exists() {
-                continue;
-            }
-            let source = match std::fs::read_to_string(path) {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::warn!("Failed to read file {:?}: {}", path, e);
-                    continue;
+        let parsed_updates: Vec<_> = updates
+            .into_par_iter()
+            .map(|path| {
+                if !path.exists() {
+                    return ParsedUpdate::Missing(path);
                 }
-            };
-            let result = extract_symbols(path, &source, self.max_depth);
-            parsed_files.push((path.clone(), result));
+                let mtime = match std::fs::metadata(&path).and_then(|m| m.modified()) {
+                    Ok(time) => time
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs(),
+                    Err(e) => {
+                        tracing::warn!("Failed to get mtime for file {:?}: {}", path, e);
+                        return ParsedUpdate::Failed(path);
+                    }
+                };
+                let source = match std::fs::read_to_string(&path) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::warn!("Failed to read file {:?}: {}", path, e);
+                        return ParsedUpdate::Failed(path);
+                    }
+                };
+                let result = extract_symbols(&path, &source, self.max_depth);
+                ParsedUpdate::Parsed(path, mtime, result)
+            })
+            .collect();
+
+        let mut parsed_files = Vec::new();
+        let mut failed_updates = Vec::new();
+
+        for update in parsed_updates {
+            match update {
+                ParsedUpdate::Parsed(path, mtime, result) => {
+                    parsed_files.push((path, mtime, result))
+                }
+                ParsedUpdate::Missing(path) => {
+                    deletes.insert(path);
+                }
+                ParsedUpdate::Failed(path) => failed_updates.push(path),
+            }
         }
 
         // Now process everything in a single transaction
-        index.with_transaction(|tx| {
+        let transaction_result = index.with_transaction(|tx| {
+            // Prepared statements for all batch operations
+            let mut stmt_del_symbols = tx.prepare_cached("DELETE FROM symbols WHERE file = ?1")?;
+            let mut stmt_del_refs = tx.prepare_cached("DELETE FROM refs WHERE file = ?1")?;
+            let mut stmt_del_opens = tx.prepare_cached("DELETE FROM opens WHERE file = ?1")?;
+            let mut stmt_del_mtime = tx.prepare_cached("DELETE FROM file_mtimes WHERE path = ?1")?;
+
+            let mut stmt_ins_symbol = tx.prepare_cached(
+                "INSERT INTO symbols (name, qualified, kind, file, line, column, end_line, end_column, visibility, source, language, parent, mixins, attributes, implements, doc, signature)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'syntactic', ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
+            )?;
+            let mut stmt_ins_ref = tx.prepare_cached(
+                "INSERT INTO refs (name, file, line, column) VALUES (?1, ?2, ?3, ?4)"
+            )?;
+            let mut stmt_ins_open = tx.prepare_cached(
+                "INSERT INTO opens (file, module_path, line) VALUES (?1, ?2, ?3)"
+            )?;
+            let mut stmt_ins_mtime = tx.prepare_cached(
+                "INSERT OR REPLACE INTO file_mtimes (path, mtime) VALUES (?1, ?2)"
+            )?;
+
             // Process deletes first (in case a file was renamed)
             for path in &deletes {
-                if let Err(e) = Self::clear_file_in_tx(tx, path) {
-                    tracing::warn!("Failed to clear file {:?}: {}", path, e);
-                } else {
-                    stats.files_deleted += 1;
-                    stats.deleted_paths.push(path.clone());
-                }
+                let file_str = path.to_string_lossy();
+                let file_ref = file_str.as_ref();
+                stmt_del_symbols.execute(rusqlite::params![file_ref])?;
+                stmt_del_refs.execute(rusqlite::params![file_ref])?;
+                stmt_del_opens.execute(rusqlite::params![file_ref])?;
+                stmt_del_mtime.execute(rusqlite::params![file_ref])?;
+                stats.files_deleted += 1;
+                stats.deleted_paths.push(path.clone());
             }
 
             // Process updates
-            for (path, result) in &parsed_files {
+            for (path, mtime, result) in &parsed_files {
+                let file_str = path.to_string_lossy();
+                let file_ref = file_str.as_ref();
+
                 // Clear existing data for this file
-                if let Err(e) = Self::clear_file_in_tx(tx, path) {
-                    tracing::warn!("Failed to clear file {:?}: {}", path, e);
-                    continue;
-                }
+                stmt_del_symbols.execute(rusqlite::params![file_ref])?;
+                stmt_del_refs.execute(rusqlite::params![file_ref])?;
+                stmt_del_opens.execute(rusqlite::params![file_ref])?;
+                stmt_del_mtime.execute(rusqlite::params![file_ref])?;
+
+                // Update file_mtime
+                stmt_ins_mtime.execute(rusqlite::params![file_ref, mtime])?;
 
                 // Insert symbols
                 for symbol in &result.symbols {
-                    if let Err(e) = Self::insert_symbol_in_tx(tx, symbol) {
-                        tracing::warn!("Failed to insert symbol {}: {}", symbol.name, e);
-                    } else {
-                        stats.symbols_inserted += 1;
-                    }
+                    stmt_ins_symbol.execute(rusqlite::params![
+                        symbol.name,
+                        symbol.qualified,
+                        symbol_kind_to_str(symbol.kind),
+                        symbol.location.file.to_string_lossy().as_ref(),
+                        symbol.location.line,
+                        symbol.location.column,
+                        symbol.location.end_line,
+                        symbol.location.end_column,
+                        visibility_to_str(symbol.visibility),
+                        symbol.language,
+                        symbol.parent,
+                        symbol.mixins.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
+                        symbol.attributes.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
+                        symbol.implements.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
+                        symbol.doc,
+                        symbol.signature,
+                    ])?;
+                    stats.symbols_inserted += 1;
                 }
 
                 // Insert references
                 for reference in &result.references {
-                    if let Err(e) = Self::insert_reference_in_tx(tx, path, reference) {
-                        tracing::warn!("Failed to insert reference: {}", e);
-                    } else {
-                        stats.references_inserted += 1;
-                    }
+                    stmt_ins_ref.execute(rusqlite::params![
+                        reference.name,
+                        file_ref,
+                        reference.location.line,
+                        reference.location.column,
+                    ])?;
+                    stats.references_inserted += 1;
                 }
 
                 // Insert opens
                 for (line, open) in result.opens.iter().enumerate() {
-                    if let Err(e) = Self::insert_open_in_tx(tx, path, open, line as u32 + 1) {
-                        tracing::warn!("Failed to insert open: {}", e);
-                    }
+                    stmt_ins_open.execute(rusqlite::params![
+                        file_ref,
+                        open,
+                        (line as u32 + 1),
+                    ])?;
                 }
 
                 stats.files_updated += 1;
@@ -245,92 +326,24 @@ impl BatchProcessor {
             }
 
             Ok(())
-        })?;
+        });
+
+        if let Err(error) = transaction_result {
+            self.pending_updates
+                .extend(parsed_files.into_iter().map(|(path, _, _)| path));
+            self.pending_updates.extend(failed_updates);
+            self.pending_deletes.extend(deletes);
+            self.batch_start = Some(Instant::now());
+            return Err(error);
+        }
+
+        self.pending_updates.extend(failed_updates);
+        if !self.is_empty() {
+            self.batch_start = Some(Instant::now());
+        }
 
         stats.duration = flush_start.elapsed();
         Ok(stats)
-    }
-
-    /// Clear all data for a file within a transaction.
-    fn clear_file_in_tx(tx: &rusqlite::Transaction<'_>, file: &Path) -> Result<(), IndexError> {
-        let file_str = file.to_string_lossy();
-        tx.execute(
-            "DELETE FROM symbols WHERE file = ?1",
-            rusqlite::params![file_str.as_ref()],
-        )?;
-        tx.execute(
-            "DELETE FROM refs WHERE file = ?1",
-            rusqlite::params![file_str.as_ref()],
-        )?;
-        tx.execute(
-            "DELETE FROM opens WHERE file = ?1",
-            rusqlite::params![file_str.as_ref()],
-        )?;
-        Ok(())
-    }
-
-    /// Insert a symbol within a transaction.
-    fn insert_symbol_in_tx(
-        tx: &rusqlite::Transaction<'_>,
-        symbol: &crate::Symbol,
-    ) -> Result<(), IndexError> {
-        tx.execute(
-            "INSERT INTO symbols (name, qualified, kind, file, line, column, end_line, end_column, visibility, source, language, parent, mixins, attributes, implements, doc, signature)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'syntactic', ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
-            rusqlite::params![
-                symbol.name,
-                symbol.qualified,
-                symbol_kind_to_str(symbol.kind),
-                symbol.location.file.to_string_lossy().as_ref(),
-                symbol.location.line,
-                symbol.location.column,
-                symbol.location.end_line,
-                symbol.location.end_column,
-                visibility_to_str(symbol.visibility),
-                symbol.language,
-                symbol.parent,
-                symbol.mixins.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
-                symbol.attributes.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
-                symbol.implements.as_ref().map(|v| serde_json::to_string(v).unwrap_or_default()),
-                symbol.doc,
-                symbol.signature,
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Insert a reference within a transaction.
-    fn insert_reference_in_tx(
-        tx: &rusqlite::Transaction<'_>,
-        file: &Path,
-        reference: &crate::index::Reference,
-    ) -> Result<(), IndexError> {
-        let file_str = file.to_string_lossy();
-        tx.execute(
-            "INSERT INTO refs (name, file, line, column) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![
-                reference.name,
-                file_str.as_ref(),
-                reference.location.line,
-                reference.location.column,
-            ],
-        )?;
-        Ok(())
-    }
-
-    /// Insert an open statement within a transaction.
-    fn insert_open_in_tx(
-        tx: &rusqlite::Transaction<'_>,
-        file: &Path,
-        module_path: &str,
-        line: u32,
-    ) -> Result<(), IndexError> {
-        let file_str = file.to_string_lossy();
-        tx.execute(
-            "INSERT INTO opens (file, module_path, line) VALUES (?1, ?2, ?3)",
-            rusqlite::params![file_str.as_ref(), module_path, line],
-        )?;
-        Ok(())
     }
 
     /// Force an immediate flush regardless of the batch interval.

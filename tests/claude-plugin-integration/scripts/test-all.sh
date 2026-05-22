@@ -1,7 +1,7 @@
 #!/bin/bash
-# Test all 12 languages
+# Test all supported language samples
 
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
@@ -11,7 +11,7 @@ echo
 # Create results directory
 mkdir -p results
 
-# All 12 supported languages
+# All supported language samples
 LANGUAGES=(
     "fsharp-sample"
     "ruby-sample"
@@ -25,6 +25,10 @@ LANGUAGES=(
     "php-sample"
     "c-sample"
     "cpp-sample"
+    "swift-sample"
+    "kotlin-sample"
+    "objc-sample"
+    "haxe-sample"
 )
 
 PASS=0
@@ -33,10 +37,10 @@ FAIL=0
 for lang in "${LANGUAGES[@]}"; do
     echo "Testing $lang..."
     if ./scripts/test-language.sh "$lang"; then
-        ((PASS++))
+        PASS=$((PASS + 1))
         echo "  ✓ PASS"
     else
-        ((FAIL++))
+        FAIL=$((FAIL + 1))
         echo "  ✗ FAIL"
     fi
     echo

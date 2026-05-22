@@ -7,6 +7,8 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
+    thread,
+    time::Duration,
 };
 use tempfile::TempDir;
 
@@ -89,6 +91,61 @@ fn def_command_reads_from_sqlite_index() -> TestResult {
         .assert()
         .success()
         .stdout(contains("App.fs"));
+
+    Ok(())
+}
+
+#[test]
+fn incremental_index_removes_stale_references() -> TestResult {
+    let workspace = TempDir::new()?;
+    let source_path = workspace.path().join("main.py");
+
+    fs::write(
+        &source_path,
+        r#"def helper():
+    return 42
+
+def caller():
+    return helper()
+"#,
+    )?;
+
+    Command::cargo_bin("rkt")?
+        .current_dir(workspace.path())
+        .args(["index", "--root", ".", "--format", "json"])
+        .assert()
+        .success();
+
+    Command::cargo_bin("rkt")?
+        .current_dir(workspace.path())
+        .args(["refs", "helper", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(contains("helper"));
+
+    thread::sleep(Duration::from_millis(1100));
+    fs::write(
+        &source_path,
+        r#"def helper():
+    return 42
+
+def caller():
+    return 0
+"#,
+    )?;
+
+    Command::cargo_bin("rkt")?
+        .current_dir(workspace.path())
+        .args(["index", "--root", ".", "--format", "json"])
+        .assert()
+        .success();
+
+    Command::cargo_bin("rkt")?
+        .current_dir(workspace.path())
+        .args(["refs", "helper", "--format", "json"])
+        .assert()
+        .code(1)
+        .stdout(contains("[]"));
 
     Ok(())
 }

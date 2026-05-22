@@ -737,14 +737,15 @@ fn cmd_index(
         for (path, reason) in stale {
             match reason {
                 "deleted" => {
-                    index.delete_symbols_in_file(&path)?;
+                    index.clear_file(&path)?;
                     index.delete_file_mtime(&path)?;
                     deleted += 1;
                 }
                 "modified" | "new" => {
                     if reason == "modified" {
                         // Clear old data for modified files
-                        index.delete_symbols_in_file(&path)?;
+                        index.clear_file(&path)?;
+                        index.delete_file_mtime(&path)?;
                     }
                     files_to_update.push(path);
                 }
@@ -971,7 +972,7 @@ fn cmd_index(
             );
         }
         if !errors.is_empty() {
-            eprintln!("Warnings:");
+            eprintln!("Errors:");
             for error in &errors[..errors.len().min(10)] {
                 eprintln!("  {}", error);
             }
@@ -1008,7 +1009,11 @@ fn cmd_index(
         }
     }
 
-    Ok(exit_codes::SUCCESS)
+    if errors.is_empty() {
+        Ok(exit_codes::SUCCESS)
+    } else {
+        Ok(exit_codes::ERROR)
+    }
 }
 
 /// Run the F# type extraction script

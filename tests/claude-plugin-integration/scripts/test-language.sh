@@ -1,17 +1,16 @@
 #!/bin/bash
 # Test a single language using Claude Code headless mode with Rocket Index plugin
 
-set -e
+set -euo pipefail
 
-LANG_DIR="$1"
-if [ -z "$LANG_DIR" ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: ./test-language.sh <language-dir>"
     echo "Example: ./test-language.sh ruby-sample"
     exit 1
 fi
+LANG_DIR="$1"
 
 REPO_PATH="test-repos/$LANG_DIR"
-RESULT_FILE="results/${LANG_DIR}_test.json"
 
 if [ ! -d "$REPO_PATH" ]; then
     echo "Error: $REPO_PATH not found"

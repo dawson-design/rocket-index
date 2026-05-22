@@ -27,6 +27,9 @@ quick-xml = { workspace = true }
 # SQLite for index storage (RFC-001)
 rusqlite = { workspace = true }
 
+# Parallelism
+rayon = { workspace = true }
+
 toml = "0.8"
 
 # Configuration with layered sources and better error reporting

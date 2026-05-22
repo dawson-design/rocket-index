@@ -153,7 +153,8 @@ mod tests {
     #[test]
     fn test_add_remove_project() {
         let mut config = McpConfig::default();
-        let path = PathBuf::from("/tmp/test-project");
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().to_path_buf();
 
         config.add_project(path.clone());
         assert_eq!(config.projects.len(), 1);

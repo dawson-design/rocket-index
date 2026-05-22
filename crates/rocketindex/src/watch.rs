@@ -323,7 +323,7 @@ impl DebouncedFileWatcher {
 }
 
 /// Check if a path is a supported source file.
-/// Supported: C, C++, C#, F#, Go, Java, JavaScript, Kotlin, Objective-C, PHP, Python, Ruby, Rust, Swift, TypeScript.
+/// Supported: C, C++, C#, F#, Go, Haxe, Java, JavaScript, Kotlin, Objective-C, PHP, Python, Ruby, Rust, Swift, TypeScript.
 pub fn is_supported_file(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -347,6 +347,8 @@ pub fn is_supported_file(path: &Path) -> bool {
                     | "fsx"
                     // Go
                     | "go"
+                    // Haxe
+                    | "hx"
                     // Java
                     | "java"
                     // JavaScript
@@ -496,6 +498,8 @@ mod tests {
         assert!(is_supported_file(Path::new("test.fsx")));
         // Go
         assert!(is_supported_file(Path::new("test.go")));
+        // Haxe
+        assert!(is_supported_file(Path::new("test.hx")));
         // Java
         assert!(is_supported_file(Path::new("test.java")));
         // JavaScript
